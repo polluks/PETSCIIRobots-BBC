@@ -1,3 +1,8 @@
 robots
 robots.map
+robots.ssd
+robots_e
+robots_e.map
+robots_e.uef
+*.inf.bak
 src/*.o
