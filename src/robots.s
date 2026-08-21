@@ -104,6 +104,19 @@ TC_CYAN    = $86
 TC_WHITE   = $87
 SCR_MSG    = $7FC0
 
+; Internal key numbers (BBC/Electron standard layout)
+K_UP     = $39
+K_DOWN   = $29
+K_LEFT   = $19
+K_RIGHT  = $79
+K_SPACE  = $62
+K_X      = $42
+K_M      = $65
+K_U      = $35
+K_D      = $32
+K_A      = $41
+K_Q      = $10
+
 ; ============================================================
 ; BSS
 ; ============================================================
@@ -212,10 +225,6 @@ IRQ_NC:
     BEQ IRQ_T2
     DEC BGTIMER2
 IRQ_T2:
-    LDA KEYTIMER
-    BEQ IRQ_DN
-    DEC KEYTIMER
-IRQ_DN:
     PLA
     TAY
     PLA
@@ -328,7 +337,7 @@ BT_L:
     DEC UTA,X
 BT_N:
     INX
-    CPX #28
+    CPX #32
     BNE BT_L
     LDA #1
     STA REDRAW_FLAG
@@ -366,27 +375,86 @@ ML_I:
     JMP MAIN_LOOP
 
 ; ============================================================
-; Read key (non-blocking)
+; Read key (non-blocking, polled via OSBYTE INKEY scan)
+; Returns A = game key code, or 0 if none pressed
 ; ============================================================
 READ_KEY:
     LDA KEYTIMER
-    BNE RK_W
-    LDA #$93
-    LDX #0
-    LDY #0
-    JSR OSBYTE
-    TXA
-    BNE RK_G
+    BEQ RK_GO
+    DEC KEYTIMER
     LDA #0
     RTS
-RK_G:
-    STA KEY_PRESS
+RK_GO:
+    LDX #$4F              ; up
+    LDA #K_UP
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$50              ; down
+    LDA #K_DOWN
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$59              ; left
+    LDA #K_LEFT
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$5A              ; right
+    LDA #K_RIGHT
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$20              ; fire
+    LDA #K_SPACE
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$58              ; search
+    LDA #K_X
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$4D              ; move object
+    LDA #K_M
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$55              ; use item
+    LDA #K_U
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$44              ; cycle weapon
+    LDA #K_D
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$41              ; cycle item
+    LDA #K_A
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDX #$51              ; quit
+    LDA #K_Q
+    JSR KEY_DOWN
+    BNE RK_HIT
+    LDA #0
+    RTS
+RK_HIT:
+    STX KEY_PRESS
     LDA #6
     STA KEYTIMER
     LDA KEY_PRESS
     RTS
-RK_W:
+
+; Scan single key. A = internal key number, X = game code (preserved).
+; Returns A = 1 if pressed, 0 if not.
+KEY_DOWN:
+    STA TEMP_C
+    STX TEMP_D
+    LDA TEMP_C
+    EOR #$FF              ; negative INKEY value
+    TAX
+    LDY #$FF
+    LDA #$81
+    JSR OSBYTE
+    CPX #$FF              ; X=$FF on exit => key pressed
+    LDX TEMP_D
     LDA #0
+    BNE KD_N
+    LDA #1
+KD_N:
     RTS
 
 ; ============================================================
@@ -856,7 +924,7 @@ AI_CHK_BU:
     JSR AI_BULLET
 AI_N:
     INX
-    CPX #28
+    CPX #32
     BNE AI_L
     RTS
 
@@ -2027,8 +2095,8 @@ CM_L:
 ; Print message on row 24
 ; ============================================================
 PRINT_MSG:
-    STA TMP_PTR_LO
-    STY TMP_PTR_HI
+    STA GEN_LO
+    STY GEN_HI
     JSR CLR_MSG
     LDA #<SCR_MSG
     STA SCR_PTR_LO
@@ -2037,7 +2105,7 @@ PRINT_MSG:
     LDY #0
     LDX #0
 PM_L:
-    LDA (TMP_PTR_LO),Y
+    LDA (GEN_LO),Y
     BEQ PM_D
     STA (SCR_PTR_LO),Y
     INY

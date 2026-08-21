@@ -6,7 +6,6 @@ PYTHON := python3
 BBC_CFG  := cfg/bbc-mode7.cfg
 BBC_TARGET := robots
 BBC_SSD := $(BBC_TARGET).ssd
-B2_SSD_CREATE := /tmp/b2/submodules/beeb/bin/ssd_create.py
 
 # Electron target
 ELK_CFG  := cfg/electron.cfg
@@ -24,8 +23,8 @@ src/robots.o: src/robots.s inc/bbc.inc
 
 ssd: $(BBC_SSD)
 
-$(BBC_SSD): $(BBC_TARGET) $(B2_SSD_CREATE)
-	$(PYTHON) $(B2_SSD_CREATE) --40 -t "PETSCII" -b "*RUN ROBOTS" -o $@ $(BBC_TARGET)
+$(BBC_SSD): $(BBC_TARGET) mkssd.py
+	$(PYTHON) mkssd.py $(BBC_TARGET) $@ 0E00 0E00 3
 
 # --- Acorn Electron ---
 $(ELK_TARGET): src/robots_e.o

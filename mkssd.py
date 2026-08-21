@@ -10,11 +10,19 @@ NUM_SECTORS = NUM_TRACKS * SECTORS_PER_TRACK
 
 
 def make_ssd(bin_path, ssd_path, name=b"PETSCII", load_addr=0x0E00,
-             exec_addr=0x0E00, boot=2):
+             exec_addr=0x0E00, boot=3):
     with open(bin_path, "rb") as f:
         data = f.read()
 
-    num_sec = (len(data) + SECTOR_SIZE - 1) // SECTOR_SIZE
+    # Two files. DFS requires catalog entries in DESCENDING order of
+    # start sector, so ROBOTS (higher start) must be listed first.
+    bootdata = b"*RUN ROBOTS\r"
+    files = [
+        (b"ROBOTS", data, load_addr, exec_addr),
+        (b"!BOOT", bootdata, 0x0000, 0x0000),
+    ]
+
+    num_sec = sum((len(d) + SECTOR_SIZE - 1) // SECTOR_SIZE for _, d, _, _ in files)
     start_sec = 2
 
     disk = bytearray(NUM_SECTORS * SECTOR_SIZE)
@@ -23,10 +31,12 @@ def make_ssd(bin_path, ssd_path, name=b"PETSCII", load_addr=0x0E00,
     title8 = name.ljust(8, b' ')[:8]
     disk[0:8] = title8
 
-    # File entry in sector 0: filename (7 bytes) + directory byte
-    fn = b"ROBOTS"
-    disk[8:15] = fn.ljust(7, b' ')
-    disk[15] = ord('$')
+    # File names in sector 0
+    off = 8
+    for fn, _, _, _ in files:
+        disk[off:off+7] = fn.ljust(7, b' ')[:7]
+        disk[off+7] = ord('$')
+        off += 8
 
     # Sector 1
     s1 = 256
@@ -35,45 +45,51 @@ def make_ssd(bin_path, ssd_path, name=b"PETSCII", load_addr=0x0E00,
     title4 = name.ljust(12, b' ')[8:12]
     disk[s1:s1+4] = title4
 
-    disk[s1+4] = 0x00                 # cycle number
-    disk[s1+5] = 8                     # file offset (8 x 1 file)
+    disk[s1+4] = 0x00                  # cycle number
+    disk[s1+5] = 8 * len(files)        # file offset
 
-    disc_hi = (NUM_SECTORS >> 8) & 3
-    disc_lo = NUM_SECTORS & 0xFF
+    disc_hi = ((start_sec + num_sec) >> 8) & 3
+    disc_lo = (start_sec + num_sec) & 0xFF
     disk[s1+6] = disc_hi | (boot << 4)
     disk[s1+7] = disc_lo
 
-    # Pack 18-bit addresses
+    # File metadata in sector 1
     def pack_18(val):
         return val & 0xFF, (val >> 8) & 0xFF, (val >> 16) & 3
 
-    load_lo, load_mid, load_hi = pack_18(load_addr)
-    exec_lo, exec_mid, exec_hi = pack_18(exec_addr)
-    len_lo, len_mid, len_hi = pack_18(len(data))
-    start_lo, start_hi = start_sec & 0xFF, (start_sec >> 8) & 3
+    cur_sec = start_sec
+    off = s1 + 8
+    for fn, fdata, fload, fexec in files:
+        nsec = (len(fdata) + SECTOR_SIZE - 1) // SECTOR_SIZE
+        load_lo, load_mid, load_hi = pack_18(fload)
+        exec_lo, exec_mid, exec_hi = pack_18(fexec)
+        len_lo, len_mid, len_hi = pack_18(len(fdata))
+        start_lo, start_hi = cur_sec & 0xFF, (cur_sec >> 8) & 3
 
-    byte14 = (start_hi << 0) | (load_hi << 2) | (len_hi << 4) | (exec_hi << 6)
+        byte14 = (start_hi << 0) | (load_hi << 2) | (len_hi << 4) | (exec_hi << 6)
 
-    disk[s1+8] = load_lo
-    disk[s1+9] = load_mid
-    disk[s1+10] = exec_lo
-    disk[s1+11] = exec_mid
-    disk[s1+12] = len_lo
-    disk[s1+13] = len_mid
-    disk[s1+14] = byte14
-    disk[s1+15] = start_lo
+        disk[off+0] = load_lo
+        disk[off+1] = load_mid
+        disk[off+2] = exec_lo
+        disk[off+3] = exec_mid
+        disk[off+4] = len_lo
+        disk[off+5] = len_mid
+        disk[off+6] = byte14
+        disk[off+7] = start_lo
+        off += 8
 
-    # File data starting at sector 2
-    offset = start_sec * SECTOR_SIZE
-    disk[offset:offset + len(data)] = data
+        foffset = cur_sec * SECTOR_SIZE
+        disk[foffset:foffset+len(fdata)] = fdata
+        cur_sec += nsec
 
     with open(ssd_path, "wb") as f:
         f.write(disk)
 
     print(f"Created {ssd_path}: {len(disk)} bytes")
-    print(f"  File: {fn.decode()} ({len(data)} bytes, "
-          f"{num_sec} sectors at sector {start_sec})")
-    print(f"  Load: ${load_addr:04X}  Exec: ${exec_addr:04X}  Boot: {boot}")
+    for fn, fdata, fload, fexec in files:
+        print(f"  {fn.decode():7s} {len(fdata):5d} bytes  "
+              f"load ${fload:04X}  exec ${fexec:04X}")
+    print(f"  Boot option: {boot}, {cur_sec} sectors used")
 
 
 def make_uef(bin_path, uef_path, load_addr=0x0E00, exec_addr=0x0E00,
