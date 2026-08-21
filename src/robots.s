@@ -225,6 +225,11 @@ IRQ_NC:
     BEQ IRQ_T2
     DEC BGTIMER2
 IRQ_T2:
+    ; Ack any interrupt sources the OS passed down via IRQ1V (e.g. the
+    ; CA1/vsync latch). If left set they re-trigger instantly and the
+    ; main thread is starved by an interrupt storm.
+    LDA #$7F
+    STA VIA_IFR
     PLA
     TAY
     PLA

@@ -24,7 +24,8 @@ make clean
 
 ### BBC Micro
 
-`robots.ssd` is a 400-sector DFS image containing `ROBOTS` (loads to &0E00)
+`robots.ssd` is a 400-sector DFS image containing `ROBOTS` (loads to &1900 —
+DFS's NMI transfer handler uses $10D6 as scratch, so lower load pages collide)
 and a `!BOOT` file. Boot option 3 is set, so shift-break (or your emulator's
 autoboot) runs the game directly.
 
@@ -58,11 +59,11 @@ src/robots.s     BBC Micro source (Mode 7, SN76489 sound)
 src/robots_e.s   Electron source
 inc/bbc.inc      BBC hardware register definitions
 inc/electron.inc Electron hardware register definitions
-cfg/bbc-mode7.cfg linker config: CODE &0E00-, screen &7C00 (Mode 7)
+cfg/bbc-mode7.cfg linker config: CODE &1900-, screen &7C00 (Mode 7)
 cfg/electron.cfg linker config: CODE &0E00-, screen &8000-ish
 mkssd.py         builds DFS .ssd images and .uef tape images
 ```
 
-Both binaries load at &0E00. Zero page usage follows the original C64
+BBC binary loads at &1900, Electron at &0E00. Zero page usage follows the original C64
 layout (&00-&2B game variables); unit slots 0-31 hold the player,
 enemies, hidden items, bullets/bombs/magnets.

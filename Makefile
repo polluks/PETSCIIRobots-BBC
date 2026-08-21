@@ -24,7 +24,7 @@ src/robots.o: src/robots.s inc/bbc.inc
 ssd: $(BBC_SSD)
 
 $(BBC_SSD): $(BBC_TARGET) mkssd.py
-	$(PYTHON) mkssd.py $(BBC_TARGET) $@ 0E00 0E00 3
+	$(PYTHON) mkssd.py $(BBC_TARGET) $@ 1900 1900 3
 
 # --- Acorn Electron ---
 $(ELK_TARGET): src/robots_e.o
