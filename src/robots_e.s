@@ -138,8 +138,8 @@ INV_MED:   .res 1
 INV_MAG:   .res 1
 SEL_WPN:   .res 1
 SEL_ITM:   .res 1
-P_X:       .res 1
-P_Y:       .res 1
+P_X = UX           ; player position = unit 0 position
+P_Y = UY
 
 ; ============================================================
 ; CODE
@@ -432,9 +432,12 @@ KEY_DOWN:
     LDA #$81
     JSR OSBYTE
     CPX #$FF              ; X=$FF on exit => key pressed
+    BEQ KD_HIT
     LDX TEMP_D
     LDA #0
-    BNE KD_N
+    RTS
+KD_HIT:
+    LDX TEMP_D
     LDA #1
 KD_N:
     RTS

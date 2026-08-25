@@ -141,8 +141,8 @@ INV_MED:   .res 1
 INV_MAG:   .res 1
 SEL_WPN:   .res 1
 SEL_ITM:   .res 1
-P_X:       .res 1
-P_Y:       .res 1
+P_X = UX           ; player position = unit 0 position
+P_Y = UY
 
 ; ============================================================
 ; CODE
@@ -455,9 +455,12 @@ KEY_DOWN:
     LDA #$81
     JSR OSBYTE
     CPX #$FF              ; X=$FF on exit => key pressed
+    BEQ KD_HIT
     LDX TEMP_D
     LDA #0
-    BNE KD_N
+    RTS
+KD_HIT:
+    LDX TEMP_D
     LDA #1
 KD_N:
     RTS
@@ -1714,9 +1717,6 @@ DC_L:
     CMP P_Y
     BNE DC_CK
     LDY #0
-    LDA #TC_WHITE
-    STA (TMP_PTR_LO),Y
-    INY
     LDA #'@'
     STA (TMP_PTR_LO),Y
     JMP DC_N
@@ -1728,40 +1728,32 @@ DC_CK:
     BEQ DC_NOU
     TAY
     LDA UTYPE,Y
+    STA TEMP_A
     CMP #1
     BEQ DC_PL
     CMP #128
     BCS DC_HID
     CMP #12
     BCS DC_WP
-    LDY #0
-    LDA #TC_RED
-    STA (TMP_PTR_LO),Y
-    INY
-    LDA UTYPE,Y
+    LDA TEMP_A
     CLC
     ADC #64
     CMP #91
     BCC DC_WR
     LDA #'R'
 DC_WR:
+    LDY #0
     STA (TMP_PTR_LO),Y
     JMP DC_N
 DC_PL:
     JMP DC_PLAYER
 DC_HID:
-    LDA #TC_YELLOW
     LDY #0
-    STA (TMP_PTR_LO),Y
-    INY
     LDA #'?'
     STA (TMP_PTR_LO),Y
     JMP DC_N
 DC_WP:
-    LDA #TC_GREEN
     LDY #0
-    STA (TMP_PTR_LO),Y
-    INY
     LDA #'*'
     STA (TMP_PTR_LO),Y
     JMP DC_N
@@ -1769,27 +1761,14 @@ DC_WP:
 DC_NOU:
     LDY TILE
     LDA TILE_CHRS,Y
-    STA TEMP_A
-    LDA TILE_CLRS,Y
-    BEQ DC_DF
     LDY #0
-    STA (TMP_PTR_LO),Y
-    INY
-    LDA TEMP_A
     STA (TMP_PTR_LO),Y
     JMP DC_N
-DC_DF:
-    LDA #TC_GREEN
-    LDY #0
-    STA (TMP_PTR_LO),Y
-    INY
-    LDA TEMP_A
-    STA (TMP_PTR_LO),Y
 
 DC_N:
     LDA TMP_PTR_LO
     CLC
-    ADC #2
+    ADC #1
     STA TMP_PTR_LO
     LDA TMP_PTR_HI
     ADC #0
@@ -1816,10 +1795,7 @@ DR_END:
     RTS
 
 DC_PLAYER:
-    LDA #TC_WHITE
     LDY #0
-    STA (TMP_PTR_LO),Y
-    INY
     LDA #'@'
     STA (TMP_PTR_LO),Y
     JMP DC_N
